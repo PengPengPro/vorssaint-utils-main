@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Hardened runtime is required for notarization. The app is NOT sandboxed
+	     (its features need system-wide access gated by TCC at runtime, not by
+	     entitlements). The one capability hardened runtime would otherwise block
+	     is sending Apple Events, which cut & paste and the uninstaller use to
+	     drive the Finder; this entitlement restores that. -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>
