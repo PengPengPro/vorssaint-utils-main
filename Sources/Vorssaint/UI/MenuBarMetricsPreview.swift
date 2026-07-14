@@ -83,7 +83,13 @@ struct MenuBarMetricsPreview: View {
         let _ = battery
         let _ = peripheralBattery
         let _ = power
-        return MenuBarMetric.enabled(in: .standard)
+        var metrics = MenuBarMetric.enabled(in: .standard)
+        if PeripheralBatterySupport.menuBarStatusActive(),
+           !metrics.contains(.peripheralBattery),
+           !PeripheralBatterySupport.menuBarDevices(from: monitor.snapshot.peripheralBatteries).isEmpty {
+            metrics.append(.peripheralBattery)
+        }
+        return metrics
     }
 
     @ViewBuilder
@@ -151,6 +157,20 @@ struct MenuBarMetricsPreview: View {
                                   weight: .semibold,
                                   design: .monospaced))
                     .frame(minWidth: style == .readable ? 33 : 30, alignment: .leading)
+            }
+            .foregroundStyle(.white)
+            .fixedSize(horizontal: true, vertical: true)
+        case let .peripheralBatteryBlock(devices):
+            VStack(alignment: .leading, spacing: -0.6) {
+                ForEach(Array(devices.prefix(2))) { device in
+                    HStack(spacing: 2) {
+                        Image(systemName: MenuBarRenderer.peripheralBatterySymbolName(for: device.kind))
+                            .font(.system(size: 10, weight: .semibold))
+                            .frame(width: 12, height: 10)
+                        Text("\(device.percent)%")
+                            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    }
+                }
             }
             .foregroundStyle(.white)
             .fixedSize(horizontal: true, vertical: true)

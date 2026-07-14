@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 /// they find useful.
 struct MonitorSettings: View {
     @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var monitor = SystemMonitor.shared
 
     @AppStorage(DefaultsKey.menuBarCombineTemperatures) private var combineTemperatures = true
     @AppStorage(DefaultsKey.menuBarSeparateMetrics) private var separateMetrics = false
@@ -26,6 +27,9 @@ struct MonitorSettings: View {
     @AppStorage(DefaultsKey.monitorGraphDisk) private var graphDisk = true
     @AppStorage(DefaultsKey.monitorGraphPower) private var graphPower = true
     @AppStorage(DefaultsKey.monitorGraphBattery) private var graphBattery = true
+
+    @AppStorage(DefaultsKey.menuBarPeripheralBatteryDevice1) private var peripheralDevice1 = ""
+    @AppStorage(DefaultsKey.menuBarPeripheralBatteryDevice2) private var peripheralDevice2 = ""
 
     var body: some View {
         Form {
@@ -73,6 +77,7 @@ struct MonitorSettings: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            peripheralBatteryDevicesSection
             Section(l10n.s.fanControlBetaSection) {
                 Toggle(l10n.s.fanControlBetaShow, isOn: $showFanControlBeta)
                 Text(l10n.s.fanControlBetaCaption)
@@ -115,6 +120,45 @@ struct MonitorSettings: View {
         let text = FeatureStrings.monitorAlerts(l10n.language)
         return Section(text.section) {
             MonitorAlertsControls(compact: false)
+        }
+    }
+
+    private var peripheralBatteryDevices: [PeripheralBatteryDevice] {
+        PeripheralBatterySupport.sorted(monitor.snapshot.peripheralBatteries)
+    }
+
+    @ViewBuilder
+    private var peripheralBatteryDevicesSection: some View {
+        Section(l10n.s.monitorShowPeripheralBattery) {
+            if peripheralBatteryDevices.isEmpty {
+                Text(l10n.s.peripheralBatteryNoDevices)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("状态栏设备 1", selection: $peripheralDevice1) {
+                    Text("不显示").tag("")
+                    ForEach(peripheralBatteryDevices) { device in
+                        Text("\(device.name) (\(device.percent)%)").tag(device.id)
+                    }
+                }
+                Picker("状态栏设备 2", selection: $peripheralDevice2) {
+                    Text("不显示").tag("")
+                    ForEach(peripheralBatteryDevices) { device in
+                        Text("\(device.name) (\(device.percent)%)").tag(device.id)
+                    }
+                }
+                .onChange(of: peripheralDevice1) { _ in dedupePeripheralDeviceSelection() }
+                .onChange(of: peripheralDevice2) { _ in dedupePeripheralDeviceSelection() }
+                Text("可最多显示 2 个蓝牙/外设电量到状态栏（图标 + 百分比）。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func dedupePeripheralDeviceSelection() {
+        if !peripheralDevice1.isEmpty, peripheralDevice1 == peripheralDevice2 {
+            peripheralDevice2 = ""
         }
     }
 }

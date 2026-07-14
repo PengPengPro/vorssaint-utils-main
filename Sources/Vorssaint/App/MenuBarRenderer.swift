@@ -132,6 +132,7 @@ enum MenuBarSegment {
     case networkBlock(down: String, up: String, style: MenuBarBlockStyle)
     case diskActivityBlock(read: String, write: String, style: MenuBarBlockStyle)
     case batteryBlock(percent: Int, isCharging: Bool, style: MenuBarBlockStyle)
+    case peripheralBatteryBlock(devices: [PeripheralBatteryDevice])
     case dot(MemoryPressure)
     case separator
 }
@@ -525,12 +526,9 @@ enum MenuBarRenderer {
                                                  style: style)])
                 }
             case .peripheralBattery:
-                if let metricValue = PeripheralBatterySupport.menuBarMetric(for: snapshot.peripheralBatteries) {
-                    groups.append([.metricBlock(label: metricValue.label,
-                                                value: metricValue.value,
-                                                minimumValue: "100%+9",
-                                                style: style,
-                                                pressure: nil)])
+                let devices = PeripheralBatterySupport.menuBarDevices(from: snapshot.peripheralBatteries)
+                if !devices.isEmpty {
+                    groups.append([.peripheralBatteryBlock(devices: devices)])
                 }
             case .power:
                 if let watts = snapshot.power?.systemWatts {
@@ -653,6 +651,8 @@ enum MenuBarRenderer {
                 result.append(batteryBlockAttachment(percent: percent,
                                                      isCharging: isCharging,
                                                      style: style))
+            case let .peripheralBatteryBlock(devices):
+                result.append(peripheralBatteryStackedAttachment(devices: devices))
             case let .dot(pressure):
                 result.append(NSAttributedString(string: "●", attributes: [.foregroundColor: nsColor(for: pressure)]))
             case .separator:
@@ -913,6 +913,78 @@ enum MenuBarRenderer {
         case 10..<35: return "battery.25"
         default: return "battery.0"
         }
+    }
+
+    static func peripheralBatterySymbolName(for kind: PeripheralBatteryKind) -> String {
+        switch kind {
+        case .keyboard: return "keyboard"
+        case .mouse: return "computermouse"
+        case .trackpad: return "rectangle.and.hand.point.up.left"
+        case .audio: return "headphones"
+        case .device: return "battery.100"
+        }
+    }
+
+    static func peripheralBatteryStackedAttachment(devices: [PeripheralBatteryDevice]) -> NSAttributedString {
+        let rows = Array(devices.prefix(2))
+        guard !rows.isEmpty else { return NSAttributedString(string: "") }
+        let image = peripheralBatteryStackedImage(devices: rows)
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = NSRect(x: 0,
+                                   y: -5.5,
+                                   width: image.size.width,
+                                   height: image.size.height)
+        return NSAttributedString(attachment: attachment)
+    }
+
+    static func peripheralBatteryStackedImage(devices: [PeripheralBatteryDevice]) -> NSImage {
+        let rows = Array(devices.prefix(2))
+        let cacheKey = "peripheral3|\(rows.map { "\($0.kind.rawValue):\($0.percent)" }.joined(separator: "|"))" as NSString
+        if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
+
+        let style = MenuBarBlockStyle.dense
+        let font = NSFont.monospacedSystemFont(ofSize: networkBlockFontSize(style: style),
+                                               weight: .semibold)
+        let symbolPointSize: CGFloat = 9.2
+        let symbolWidth: CGFloat = 11.0
+        let gap: CGFloat = 2.0
+        let lineHeight = networkBlockLineHeight(style: style)
+        let height: CGFloat = 20
+        let valueAttrs = dynamicTextAttributes(font: font)
+        let reservedValue = "100%"
+        let reservedValueWidth = (reservedValue as NSString).size(withAttributes: valueAttrs).width
+        let rowWidth = symbolWidth + gap + reservedValueWidth
+        let imageSize = NSSize(width: ceil(rowWidth), height: height)
+        let image = NSImage(size: imageSize, flipped: false) { rect in
+            NSColor.clear.setFill()
+            rect.fill()
+            let symbolConfig = NSImage.SymbolConfiguration(pointSize: symbolPointSize, weight: .semibold)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [.labelColor]))
+            let textSize = (reservedValue as NSString).size(withAttributes: valueAttrs)
+            let contentHeight = lineHeight * CGFloat(max(rows.count - 1, 0)) + textSize.height
+            let bottomY = (imageSize.height - contentHeight) / 2
+            for (index, device) in rows.enumerated() {
+                let value = "\(device.percent)%"
+                let valueSize = (value as NSString).size(withAttributes: valueAttrs)
+                let y = bottomY + lineHeight * CGFloat(rows.count - 1 - index)
+                let symbolName = peripheralBatterySymbolName(for: device.kind)
+                if let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+                    .withSymbolConfiguration(symbolConfig) {
+                    let symbolSize = symbol.size
+                    let symbolRect = NSRect(x: 0,
+                                            y: y + (valueSize.height - symbolSize.height) / 2,
+                                            width: min(symbolWidth, symbolSize.width),
+                                            height: symbolSize.height)
+                    symbol.draw(in: symbolRect)
+                }
+                (value as NSString).draw(at: NSPoint(x: symbolWidth + gap, y: y), withAttributes: valueAttrs)
+            }
+            return true
+        }
+        image.isTemplate = false
+        blockImageCache.setObject(image, forKey: cacheKey, cost: blockImageCost(image))
+        return image
     }
 
     private static func estimatedSnapshot() -> SystemSnapshot {

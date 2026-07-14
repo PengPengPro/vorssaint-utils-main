@@ -395,6 +395,8 @@ final class SystemMonitor: ObservableObject {
             || alertBattery
         plan.needPeripheralBattery = menuPanelNeeds.peripheralBattery
             || defaults.bool(forKey: DefaultsKey.menuBarPeripheralBattery)
+            || !(defaults.string(forKey: DefaultsKey.menuBarPeripheralBatteryDevice1) ?? "").isEmpty
+            || !(defaults.string(forKey: DefaultsKey.menuBarPeripheralBatteryDevice2) ?? "").isEmpty
         plan.needGPUUsage = panelGPU || defaults.bool(forKey: DefaultsKey.menuBarGPU)
         plan.needCPUTemperature = panelTemps || menuPanelNeeds.cpuTemperature ||
             defaults.bool(forKey: DefaultsKey.menuBarCPUTemperature) || alertCPUTemperature

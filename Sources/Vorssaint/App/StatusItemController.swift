@@ -42,7 +42,8 @@ final class StatusItemController {
     var button: NSStatusBarButton? { statusItem.button }
 
     func containsStatusItem(at screenPoint: NSPoint) -> Bool {
-        let buttons = ([statusItem?.button] + metricStatusItems.values.map(\.button)).compactMap { $0 }
+        let buttons = ([statusItem?.button]
+            + metricStatusItems.values.map(\.button)).compactMap { $0 }
         return buttons.contains { button in
             guard let frame = button.window?.frame else { return false }
             return frame.insetBy(dx: -4, dy: -8).contains(screenPoint)
@@ -168,7 +169,8 @@ final class StatusItemController {
         SystemMonitor.shared.$snapshot
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                guard MenuBarMetric.anyEnabled(in: .standard) else { return }
+                guard MenuBarMetric.anyEnabled(in: .standard)
+                    || PeripheralBatterySupport.menuBarStatusActive() else { return }
                 self?.refresh()
             }
             .store(in: &cancellables)
@@ -199,7 +201,8 @@ final class StatusItemController {
         let defaults = UserDefaults.standard
         let interval = Defaults.sanitizedMonitorInterval(defaults.integer(forKey: DefaultsKey.monitorInterval))
         SystemMonitor.shared.setInterval(seconds: interval)
-        SystemMonitor.shared.setMenuBarActive(MenuBarMetric.anyEnabled(in: defaults))
+        SystemMonitor.shared.setMenuBarActive(MenuBarMetric.anyEnabled(in: defaults)
+            || PeripheralBatterySupport.menuBarStatusActive(defaults: defaults))
     }
 
     /// Reflects keep-awake state and an available update in the icon. Updates
@@ -284,7 +287,13 @@ final class StatusItemController {
         let strings = L10n.shared.s
         let defaults = UserDefaults.standard
         let snapshot = SystemMonitor.shared.snapshot
-        let metrics = MenuBarMetric.enabled(in: defaults)
+        var metrics = MenuBarMetric.enabled(in: defaults)
+        if PeripheralBatterySupport.menuBarStatusActive(defaults: defaults),
+           !metrics.contains(.peripheralBattery),
+           !PeripheralBatterySupport.menuBarDevices(from: snapshot.peripheralBatteries,
+                                                    defaults: defaults).isEmpty {
+            metrics.append(.peripheralBattery)
+        }
         let separateMetrics = defaults.bool(forKey: DefaultsKey.menuBarSeparateMetrics)
 
         // Compose the title from the keep-awake countdown (when shown) followed by

@@ -111,6 +111,10 @@ enum DefaultsKey {
     static let menuBarDiskActivity = "menuBarDiskActivity"
     static let menuBarBattery = "menuBarBattery"
     static let menuBarPeripheralBattery = "menuBarPeripheralBattery"
+    /// Pin up to two specific peripheral devices (mouse/keyboard/etc.) as their
+    /// own status bar items (icon + percent). Empty means off.
+    static let menuBarPeripheralBatteryDevice1 = "menuBarPeripheralBatteryDevice1"
+    static let menuBarPeripheralBatteryDevice2 = "menuBarPeripheralBatteryDevice2"
     static let menuBarPower = "menuBarPower"
     static let menuBarPreset = "menuBarPreset"           // dense
     static let menuBarMetricSpacing = "menuBarMetricSpacing" // standard | compact
@@ -434,6 +438,8 @@ enum Defaults {
         DefaultsKey.menuBarDiskUsage: false,
         DefaultsKey.menuBarDiskActivity: false,
         DefaultsKey.menuBarPeripheralBattery: false,
+        DefaultsKey.menuBarPeripheralBatteryDevice1: "",
+        DefaultsKey.menuBarPeripheralBatteryDevice2: "",
         DefaultsKey.menuBarPreset: "dense",
         DefaultsKey.menuBarMetricSpacing: "compact",  // owner's call: compact by default in 3.1.8
         DefaultsKey.menuBarHideIconWithMetrics: false,

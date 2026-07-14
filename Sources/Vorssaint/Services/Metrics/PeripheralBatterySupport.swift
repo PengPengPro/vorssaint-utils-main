@@ -268,6 +268,34 @@ enum PeripheralBatterySupport {
         let extra = devices.count > 1 ? "+\(min(9, devices.count - 1))" : ""
         return (first.kind.menuLabel, "\(first.percent)%\(extra)")
     }
+
+    static func menuBarStatusActive(defaults: UserDefaults = .standard) -> Bool {
+        let id1 = trimmedDeviceID(defaults.string(forKey: DefaultsKey.menuBarPeripheralBatteryDevice1))
+        let id2 = trimmedDeviceID(defaults.string(forKey: DefaultsKey.menuBarPeripheralBatteryDevice2))
+        if !id1.isEmpty || !id2.isEmpty { return true }
+        return defaults.bool(forKey: DefaultsKey.menuBarPeripheralBattery)
+    }
+
+    static func menuBarDevices(from devices: [PeripheralBatteryDevice],
+                               defaults: UserDefaults = .standard) -> [PeripheralBatteryDevice] {
+        let id1 = trimmedDeviceID(defaults.string(forKey: DefaultsKey.menuBarPeripheralBatteryDevice1))
+        let id2 = trimmedDeviceID(defaults.string(forKey: DefaultsKey.menuBarPeripheralBatteryDevice2))
+        let byID = Dictionary(uniqueKeysWithValues: devices.map { ($0.id, $0) })
+        var selected: [PeripheralBatteryDevice] = []
+        for id in [id1, id2] where !id.isEmpty {
+            if let device = byID[id] {
+                selected.append(device)
+            }
+        }
+        if selected.isEmpty, defaults.bool(forKey: DefaultsKey.menuBarPeripheralBattery) {
+            selected = Array(sorted(devices).prefix(2))
+        }
+        return selected
+    }
+
+    private static func trimmedDeviceID(_ raw: String?) -> String {
+        (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 enum PeripheralBatteryRefreshPolicy {
