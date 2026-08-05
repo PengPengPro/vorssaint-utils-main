@@ -14,6 +14,8 @@ final class StatusItemController {
     private(set) var statusItem: NSStatusItem!
     private var metricStatusItems: [String: NSStatusItem] = [:]
     private var metricStatusItemFocus: [String: MenuBarMetric] = [:]
+    /// Click zones for metrics rendered inside the main status item (combined mode).
+    private var combinedMetricClickTargets: [(metric: MenuBarMetric, width: CGFloat)] = []
     private var cancellables = Set<AnyCancellable>()
     private var titleTimer: Timer?
     private var defaultsObserver: NSObjectProtocol?
@@ -275,9 +277,48 @@ final class StatusItemController {
         if appDelegate()?.isMouseInPopover(at: NSEvent.mouseLocation) == true { return }
         if NSApp.currentEvent?.type == .rightMouseUp {
             onRightClick?()
-        } else {
-            onLeftClick?()
+            return
         }
+        if let button = statusItem.button,
+           let metric = combinedMetric(at: NSEvent.mouseLocation, in: button) {
+            onMetricClick?(metric, button)
+            return
+        }
+        onLeftClick?()
+    }
+
+    /// Maps a click on the combined metrics strip to the metric under the
+    /// cursor. Clicks on the glyph / countdown still open the normal panel.
+    private func combinedMetric(at screenPoint: NSPoint, in button: NSStatusBarButton) -> MenuBarMetric? {
+        guard !combinedMetricClickTargets.isEmpty,
+              let window = button.window else { return nil }
+
+        let buttonScreen = window.convertToScreen(button.convert(button.bounds, to: nil))
+        guard buttonScreen.insetBy(dx: -1, dy: -2).contains(screenPoint) else { return nil }
+
+        let xInButton = screenPoint.x - buttonScreen.minX
+        // Glyph (and any leading chrome) stays on the left; metrics fill the rest.
+        let leadingChrome = max(button.image?.size.width ?? 0, 0) + (button.image != nil ? 6 : 0)
+        let metricsMinX = leadingChrome
+        let metricsWidth = buttonScreen.width - metricsMinX
+        guard xInButton >= metricsMinX - 1, metricsWidth > 8 else { return nil }
+
+        let total = combinedMetricClickTargets.reduce(CGFloat(0)) { $0 + $1.width }
+        guard total > 1 else { return combinedMetricClickTargets.first?.metric }
+        // Scale theoretical widths to the live button so layout padding cannot
+        // push every hit into the "normal panel" zone.
+        let scale = metricsWidth / total
+        var cursor = metricsMinX
+        let localX = xInButton
+        for (index, target) in combinedMetricClickTargets.enumerated() {
+            let width = target.width * scale
+            let end = cursor + width
+            if localX < end || index == combinedMetricClickTargets.count - 1 {
+                return target.metric
+            }
+            cursor = end
+        }
+        return combinedMetricClickTargets.last?.metric
     }
 
     /// Updates the countdown title and tooltip from the current session state.
@@ -315,9 +356,12 @@ final class StatusItemController {
             includesCountdown = true
         }
         if separateMetrics {
+            Self.repairOrphanedMetricPlacements(in: defaults)
             refreshMetricStatusItems(metrics: metrics, snapshot: snapshot, strings: strings)
+            combinedMetricClickTargets = []
         } else {
             removeMetricStatusItems(except: Set<String>())
+            combinedMetricClickTargets = MenuBarRenderer.metricClickTargets(for: snapshot, metrics: metrics)
         }
         if !separateMetrics, !metrics.isEmpty {
             let metricsTitle = MenuBarRenderer.attributed(for: snapshot,
@@ -328,6 +372,8 @@ final class StatusItemController {
                 if title.length > 0 { title.append(NSAttributedString(string: "  ")) }
                 title.append(metricsTitle)
             }
+        } else if separateMetrics {
+            // Keep countdown-only title when metrics live in their own items.
         }
 
         statusItem.length = NSStatusItem.variableLength
@@ -485,6 +531,7 @@ final class StatusItemController {
     }
 
     private func installMetricStatusItem(for group: MetricStatusGroup) -> NSStatusItem {
+        Self.seedMetricPlacementIfNeeded(for: group.id, in: .standard)
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = "\(Self.metricAutosavePrefix).\(group.id)"
         item.behavior = []
@@ -502,6 +549,45 @@ final class StatusItemController {
         metricStatusItems[group.id] = item
         metricStatusItemFocus[group.id] = group.focusMetric
         return item
+    }
+
+    /// Same idea as the main-icon protected placement: a fresh metric item with
+    /// no (or absurdly large) preferred position lands by the notch and is the
+    /// first thing macOS drops. Seed a small trailing-edge offset so RAM/CPU
+    /// items stay clickable beside the clock.
+    private static let metricPlacementBaseOffset: Double = 96
+    private static let metricPlacementSlotWidth: Double = 58
+    private static let metricPlacementMaxSaneOffset: Double = 2_400
+
+    private static let metricPlacementSlotOrder = [
+        "cpu", "memory", "gpu", "network", "diskUsage", "diskActivity",
+        "battery", "power", "peripheralBattery",
+    ]
+
+    private static func seedMetricPlacementIfNeeded(for id: String, in defaults: UserDefaults) {
+        let key = "NSStatusItem Preferred Position \(metricAutosavePrefix).\(id)"
+        if let existing = defaults.object(forKey: key) as? Double,
+           existing > 0,
+           existing <= metricPlacementMaxSaneOffset {
+            return
+        }
+        let slot = metricPlacementSlotOrder.firstIndex(of: id) ?? metricPlacementSlotOrder.count
+        defaults.set(metricPlacementBaseOffset + Double(slot) * metricPlacementSlotWidth,
+                     forKey: key)
+        defaults.set(true, forKey: "NSStatusItem Visible \(metricAutosavePrefix).\(id)")
+    }
+
+    /// Repair metric items that macOS has already parked far off-screen from a
+    /// bad autosaved position (seen as X ≪ 0 in window lists).
+    private static func repairOrphanedMetricPlacements(in defaults: UserDefaults) {
+        let prefix = "NSStatusItem Preferred Position \(metricAutosavePrefix)."
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            let id = String(key.dropFirst(prefix.count))
+            guard let value = defaults.object(forKey: key) as? Double,
+                  value <= 0 || value > metricPlacementMaxSaneOffset else { continue }
+            defaults.removeObject(forKey: key)
+            seedMetricPlacementIfNeeded(for: id, in: defaults)
+        }
     }
 
     @objc private func metricClicked(_ sender: NSStatusBarButton) {
