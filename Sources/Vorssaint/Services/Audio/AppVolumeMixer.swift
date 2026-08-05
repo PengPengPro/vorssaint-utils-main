@@ -890,9 +890,7 @@ private final class TapGainEngine: GainEngine {
         gainBox.value = min(max(gain, 0), Float(AppVolumeMixer.maxVolume))
         self.outputDeviceUID = outputDeviceUID
 
-        guard let description = CATapDescription(stereoMixdownOfProcesses: objects.map { NSNumber(value: $0) }) else {
-            return nil
-        }
+        let description = CATapDescription(stereoMixdownOfProcesses: objects)
         description.muteBehavior = .mutedWhenTapped
         description.isPrivate = true
         guard AudioHardwareCreateProcessTap(description, &tapID) == noErr, tapID != 0 else {

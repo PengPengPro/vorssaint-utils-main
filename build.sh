@@ -77,10 +77,21 @@ if (( INSTALL && ! TEST )) && [[ "${VORSSAINT_INSTALL_CHILD:-0}" != "1" ]]; then
     exit 0
 fi
 
-# Prefer the macOS 26 SDK when present: the 27 SDK turns SwiftUI property wrappers
-# into macros (SwiftUIMacros plugin) that the Command Line Tools cannot load yet.
-PINNED_SDK="/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk"
-if [[ -d "$PINNED_SDK" ]]; then
+# Prefer a stable SDK the Command Line Tools can fully drive. Xcode's newest
+# MacOSX.sdk (26+) turns SwiftUI property wrappers into macros that CLT cannot
+# load, so pin away from that when a CLT SDK is available.
+PINNED_SDK=""
+for candidate in \
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk" \
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX15.5.sdk" \
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk"
+do
+    if [[ -d "$candidate" ]]; then
+        PINNED_SDK="$candidate"
+        break
+    fi
+done
+if [[ -n "$PINNED_SDK" ]]; then
     SDK="$PINNED_SDK"
 else
     SDK="$(xcrun --show-sdk-path)"

@@ -7,17 +7,13 @@
 #import <CoreAudio/CoreAudio.h>
 #import <Foundation/Foundation.h>
 
-// CoreAudio process/tap APIs shipped in macOS 14.4+ but absent from the
-// Xcode 14 SDK headers. Symbols are present in CoreAudio.tbd for linking.
+// CoreAudio process/tap APIs shipped in macOS 14.2+ / 14.4+. Older SDKs omit
+// the declarations; current SDKs already provide them.
+#if __MAC_OS_X_VERSION_MAX_ALLOWED < 140200
 
 static const AudioObjectPropertySelector kAudioHardwarePropertyProcessObjectList = 0x70727323; // 'prs#'
 static const AudioObjectPropertySelector kAudioProcessPropertyPID = 0x70706964;                 // 'ppid'
 static const AudioObjectPropertySelector kAudioProcessPropertyIsRunningOutput = 0x7069726f;      // 'piro'
-
-extern CFStringRef const kVorssaintAudioAggregateDeviceTapListKey;
-extern CFStringRef const kVorssaintAudioAggregateDeviceTapAutoStartKey;
-extern CFStringRef const kVorssaintAudioSubTapUIDKey;
-extern CFStringRef const kVorssaintAudioSubTapDriftCompensationKey;
 
 typedef NS_ENUM(NSInteger, CATapMuteBehavior) {
     CATapUnmuted = 0,
@@ -34,5 +30,12 @@ typedef NS_ENUM(NSInteger, CATapMuteBehavior) {
 
 OSStatus AudioHardwareCreateProcessTap(CATapDescription *inDescription, AudioObjectID *outTapID);
 OSStatus AudioHardwareDestroyProcessTap(AudioObjectID inTapID);
+
+#endif
+
+extern CFStringRef const kVorssaintAudioAggregateDeviceTapListKey;
+extern CFStringRef const kVorssaintAudioAggregateDeviceTapAutoStartKey;
+extern CFStringRef const kVorssaintAudioSubTapUIDKey;
+extern CFStringRef const kVorssaintAudioSubTapDriftCompensationKey;
 
 #endif
