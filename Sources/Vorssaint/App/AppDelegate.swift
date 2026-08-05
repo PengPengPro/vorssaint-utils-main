@@ -239,12 +239,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         popover.delegate = self
         let host = MenuPanelHostingController(rootView: MenuPanelView())
         popover.contentViewController = host
-        if #unavailable(macOS 13.0) {
-            let initialSize = MenuPanelHostingController.legacyInitialMenuPanelSize
-            host.applyExplicitContentSize(initialSize)
-            popover.contentSize = initialSize
-            lastAppliedPopoverSize = initialSize
-        }
+        // Seed an explicit size on every OS: without it the first open can use a
+        // half-laid-out preferredContentSize and clip the panel.
+        let initialSize = MenuPanelHostingController.legacyInitialMenuPanelSize
+        host.applyExplicitContentSize(initialSize)
+        popover.contentSize = initialSize
+        lastAppliedPopoverSize = initialSize
         NotificationCenter.default.addObserver(self, selector: #selector(appResignedActive),
                                                name: NSApplication.didResignActiveNotification, object: nil)
     }
@@ -279,7 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             return
         }
         MenuPanelFocus.shared.focus(detailKind)
-        showPopover(anchor: button)
+        showPopover(anchor: button, allowRecentClose: true)
     }
 
     private func scheduleMetricAnchorSwitch(to detailKind: MetricDetailKind, anchoredTo button: NSStatusBarButton) {
@@ -306,9 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         popoverAnchorButton = button
         let expectedMidX = statusButtonMidX(button)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        if #unavailable(macOS 13.0) {
-            NotificationCenter.default.post(name: .menuPanelWillShow, object: nil)
-        }
+        NotificationCenter.default.post(name: .menuPanelWillShow, object: nil)
         popover.contentViewController?.view.window?.makeKey()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self, weak button] in
             guard let self,
@@ -372,13 +370,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         guard allowRecentClose || Date().timeIntervalSince(popoverClosedAt) > 0.35 else { return }
         guard let button = button ?? statusController.button else { return }
         popoverAnchorButton = button
-        if #unavailable(macOS 13.0),
-           let host = popover.contentViewController as? MenuPanelHostingController,
-           lastAppliedPopoverSize == .zero {
-            let initialSize = MenuPanelHostingController.legacyInitialMenuPanelSize
-            host.applyExplicitContentSize(initialSize)
-            popover.contentSize = initialSize
-            lastAppliedPopoverSize = initialSize
+        if let host = popover.contentViewController as? MenuPanelHostingController {
+            let size = lastAppliedPopoverSize.width > 1
+                ? lastAppliedPopoverSize
+                : MenuPanelHostingController.legacyInitialMenuPanelSize
+            host.applyExplicitContentSize(size)
+            popover.contentSize = size
+            lastAppliedPopoverSize = size
         }
 
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
@@ -404,7 +402,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // Only arm the dismiss monitor if the popover actually presented — otherwise
         // popoverDidClose never fires and the global monitor would leak indefinitely.
         guard popover.isShown else { return }
-        if #unavailable(macOS 13.0) {
+        // Measure after `show` returns so `isShown` is true and the size handler
+        // can apply immediately. Doing this in popoverWillShow is too early on
+        // both macOS 12 and 15.
+        if !popoverIsSwitchingAnchor {
             lastAppliedPopoverSize = .zero
             NotificationCenter.default.post(name: .menuPanelWillShow, object: nil)
         }
@@ -593,10 +594,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     // The SwiftUI panel reports which monitor sections are actually visible; the
     // popover callback only handles update freshness.
     func popoverWillShow(_ notification: Notification) {
-        if #unavailable(macOS 13.0) {
-            lastAppliedPopoverSize = .zero
-            NotificationCenter.default.post(name: .menuPanelWillShow, object: nil)
-        }
         SystemMonitor.shared.suppressGPUReadsForTransientUI()
         if !popoverIsSwitchingAnchor {
             UpdateService.shared.checkIfStale()
@@ -610,8 +607,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     @objc private func menuPanelContentSizeChanged(_ notification: Notification) {
-        guard #unavailable(macOS 13.0),
-              popover.isShown,
+        guard popover.isShown,
               let value = notification.userInfo?["size"] as? NSValue else { return }
         schedulePopoverSize(value.sizeValue)
     }
@@ -636,8 +632,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02, execute: work)
     }
 
-    /// Resize without calling `show` again — on macOS 12 a second `show` while
-    /// open can dismiss the popover or shift it, leaving a click-through gap.
+    /// Resize the open panel without losing the status-item anchor.
+    ///
+    /// macOS 12: set `contentSize` and keep the top edge with `setFrame` — a
+    /// second `show` while open can dismiss the popover or leave a click-through
+    /// gap.
+    /// macOS 13+: set `contentSize` then move the window under the status button.
+    /// Do not call `show` again; that can emit didClose and clear metric focus.
     private func applyPopoverSizePreservingTop(_ size: CGSize) {
         guard popover.isShown,
               let window = popover.contentViewController?.view.window else { return }
@@ -647,45 +648,95 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         }
 
         popoverIsResizing = true
-        defer {
-            DispatchQueue.main.async { [weak self] in
-                self?.popoverIsResizing = false
-            }
-        }
-
-        let topY = window.frame.maxY
         (popover.contentViewController as? MenuPanelHostingController)?
             .applyExplicitContentSize(size)
         popover.contentSize = size
+        lastAppliedPopoverSize = size
         window.contentView?.layoutSubtreeIfNeeded()
 
+        if #available(macOS 13.0, *) {
+            // Reposition under the status button without a second `show` —
+            // calling `show` again can emit didClose and wipe metric detail focus.
+            reanchorOpenPopoverWindow(window)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+                self?.popoverIsResizing = false
+            }
+            return
+        }
+
+        let topY = window.frame.maxY
         var frame = window.frame
         frame.size = NSSize(width: size.width, height: size.height)
         frame.origin.y = topY - frame.height
-        let heightDelta = abs(window.frame.height - frame.height)
-        let needsMove = heightDelta > 0.5
+        let needsMove = abs(window.frame.height - frame.height) > 0.5
             || abs(window.frame.width - frame.width) > 0.5
             || abs(window.frame.origin.y - frame.origin.y) > 0.5
-        guard needsMove else { return }
+        if needsMove {
+            window.setFrame(frame, display: true)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            self?.popoverIsResizing = false
+        }
+    }
 
-        lastAppliedPopoverSize = size
-        if #available(macOS 13.0, *), heightDelta > 2 {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.14
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                context.allowsImplicitAnimation = true
-                window.animator().setFrame(frame, display: true)
+    /// Keep an already-open panel pinned under the status item after a height
+    /// change, without asking NSPopover to present again.
+    private func reanchorOpenPopoverWindow(_ window: NSWindow) {
+        guard let button = popoverAnchorButton ?? statusController.button,
+              let buttonWindow = button.window else { return }
+        let buttonScreen = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+        var frame = window.frame
+        frame.origin.x = buttonScreen.midX - frame.width / 2
+        frame.origin.y = buttonScreen.minY - frame.height
+        if let screen = buttonWindow.screen ?? window.screen {
+            let visible = screen.visibleFrame
+            frame.origin.x = min(max(frame.origin.x, visible.minX + 4),
+                                 visible.maxX - frame.width - 4)
+            if frame.origin.y < visible.minY {
+                frame.origin.y = visible.minY
             }
         } else {
+            let visible = NSScreen.withMouse.visibleFrame
+            frame.origin.x = min(max(frame.origin.x, visible.minX + 4),
+                                 visible.maxX - frame.width - 4)
+            if frame.origin.y < visible.minY {
+                frame.origin.y = visible.minY
+            }
+        }
+        if abs(window.frame.origin.x - frame.origin.x) > 0.5
+            || abs(window.frame.origin.y - frame.origin.y) > 0.5 {
             window.setFrame(frame, display: true)
         }
     }
 
     func popoverShouldClose(_ popover: NSPopover) -> Bool {
-        popoverIsClosing || popoverIsResizing || !PanelInteractionState.shared.keepsPopoverOpen
+        // While we are resizing/re-anchoring, never accept a close — a second
+        // `show` on macOS 13+ can otherwise emit a close that would wipe metric
+        // focus and fall back to the normal panel for every metric click.
+        if popoverIsResizing { return false }
+        return popoverIsClosing || !PanelInteractionState.shared.keepsPopoverOpen
     }
 
     func popoverDidClose(_ notification: Notification) {
+        // A contentSize re-anchor can deliver a spurious didClose while the
+        // panel is still on screen. Ignore it so metric detail focus (RAM /
+        // CPU / …) is not cleared mid-open.
+        if popoverIsResizing {
+            popoverIsClosing = false
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if self.popover.isShown {
+                    self.installPopoverDismissMonitor()
+                } else {
+                    self.finishPopoverDidClose()
+                }
+            }
+            return
+        }
+        finishPopoverDidClose()
+    }
+
+    private func finishPopoverDidClose() {
         if !popoverIsSwitchingAnchor {
             NotificationCenter.default.post(name: .menuPanelDidClose, object: nil)
             SystemMonitor.shared.setMenuPanelNeeds(.none)

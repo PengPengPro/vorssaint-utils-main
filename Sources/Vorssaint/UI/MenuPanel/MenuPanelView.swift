@@ -99,9 +99,10 @@ struct MenuPanelView: View {
     }
 
     /// Cap the panel to the usable screen height so it never overflows the menu
-    /// bar; taller content scrolls inside.
+    /// bar; taller content scrolls inside. Prefer the screen under the cursor
+    /// (where the status item was clicked) over `NSScreen.main`.
     private var maxHeight: CGFloat {
-        max(360, (NSScreen.main?.visibleFrame.height ?? 760) - 24)
+        max(360, NSScreen.withMouse.visibleFrame.height - 48)
     }
 
     var body: some View {
@@ -182,7 +183,12 @@ struct MenuPanelView: View {
     private func prepareForDisplay() {
         if let request = panelFocus.request {
             applyFocus(request)
-        } else if panelFocus.activeMetric == nil {
+        } else if let metric = panelFocus.activeMetric {
+            // Keep metric detail if focus survived without a fresh request
+            // (e.g. after a resize re-anchor).
+            selectedMetric = metric
+            selectedSection = metric.panelSection
+        } else {
             selectedMetric = nil
         }
         KeepAwakeManager.shared.refreshPasswordlessStatus()
@@ -194,8 +200,7 @@ struct MenuPanelView: View {
     private func publishPopoverSize() {
         let height = selectedMetric != nil ? metricPanelHeight : navigablePanelHeight
         let size = CGSize(width: 332, height: height)
-        if #unavailable(macOS 13.0),
-           abs(size.height - lastPublishedPopoverSize.height) < 0.5,
+        if abs(size.height - lastPublishedPopoverSize.height) < 0.5,
            abs(size.width - lastPublishedPopoverSize.width) < 0.5 {
             return
         }

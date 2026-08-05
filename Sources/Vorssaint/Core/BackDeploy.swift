@@ -10,11 +10,15 @@ extension Notification.Name {
     static let menuPanelContentSizeChanged = Notification.Name("VorssaintMenuPanelContentSizeChanged")
 }
 
-/// Menu-bar popover host: on macOS 12, SwiftUI's fittingSize overshoots the
-/// panel frame, so the popover window ends up taller than the content (gray
-/// dead space below). Sizes come from MenuPanelView's explicit frame instead.
+/// Menu-bar popover host. Preferred size is driven from MenuPanelView's
+/// explicit frame (posted as `.menuPanelContentSizeChanged`) so the NSPopover
+/// never opens at a stale/half height — `sizingOptions` alone is unreliable
+/// when the panel embeds an AppKit scroll view.
 final class MenuPanelHostingController: NSHostingController<MenuPanelView> {
-    static let legacyInitialMenuPanelSize = CGSize(width: 332, height: 620)
+    /// Modest seed size used before the first SwiftUI measure lands. A much
+    /// taller seed (near full screen) makes NSPopover place the window far from
+    /// the status item on crowded displays.
+    static let legacyInitialMenuPanelSize = CGSize(width: 332, height: 430)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -24,11 +28,12 @@ final class MenuPanelHostingController: NSHostingController<MenuPanelView> {
     }
 
     func applyExplicitContentSize(_ size: CGSize) {
-        if #available(macOS 13.0, *) { return }
         guard size.width > 1, size.height > 1 else { return }
         if abs(preferredContentSize.width - size.width) > 0.5
             || abs(preferredContentSize.height - size.height) > 0.5 {
             preferredContentSize = size
+        }
+        if #unavailable(macOS 13.0) {
             view.setFrameSize(size)
             view.needsLayout = true
             view.layoutSubtreeIfNeeded()
