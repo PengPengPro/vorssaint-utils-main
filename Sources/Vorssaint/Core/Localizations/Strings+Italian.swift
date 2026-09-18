@@ -677,6 +677,7 @@ extension Strings {
         menuBarLabelStyleClassic: "Classiche",
         monitorMemoryStyleLabel: "Mostra la memoria come",
         monitorMemoryPressureDot: "Punto pressione",
+        monitorDiskUsageShowFree: "Mostra spazio libero",
         memoryStyleDot: "Punto",
         memoryStylePercent: "%",
         memoryStyleBoth: "Entrambi",

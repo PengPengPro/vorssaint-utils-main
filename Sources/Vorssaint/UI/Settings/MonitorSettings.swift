@@ -217,6 +217,10 @@ private struct MenuBarMetricOrderEditor: View {
                 MemoryMenuBarOrderOption()
             }
 
+            if metric == .diskUsage {
+                DiskUsageMenuBarOrderOption()
+            }
+
             if metric == .network {
                 NetworkMenuBarOrderOption()
             }
@@ -283,6 +287,24 @@ private struct MemoryMenuBarOrderOption: View {
                                       set: { memoryStyle = $0 ? "both" : "percent" }))
                 .onAppear {
                     memoryStyle = Defaults.sanitizedMenuBarMemoryStyle(memoryStyle)
+                }
+        }
+    }
+}
+
+private struct DiskUsageMenuBarOrderOption: View {
+    @ObservedObject private var l10n = L10n.shared
+    @AppStorage(DefaultsKey.menuBarDiskUsage) private var menuBarDiskUsage = false
+    @AppStorage(DefaultsKey.menuBarDiskUsageStyle) private var diskUsageStyle = "percent"
+
+    var body: some View {
+        if menuBarDiskUsage {
+            MetricRowOptionToggle(label: l10n.s.monitorDiskUsageShowFree,
+                                  isOn: Binding(
+                                      get: { Defaults.sanitizedMenuBarDiskUsageStyle(diskUsageStyle) == "free" },
+                                      set: { diskUsageStyle = $0 ? "free" : "percent" }))
+                .onAppear {
+                    diskUsageStyle = Defaults.sanitizedMenuBarDiskUsageStyle(diskUsageStyle)
                 }
         }
     }

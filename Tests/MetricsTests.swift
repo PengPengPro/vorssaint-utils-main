@@ -49,6 +49,11 @@ struct MetricsTests {
         expectEqual(MetricFormat.diskBytes(123_456_789_000), "123 GB", "disk bytes match Finder-style GB")
         expectEqual(MetricFormat.diskBytesPrecise(14_878_047_232_000), "14.88 TB",
                     "precise disk bytes keep SMART totals readable")
+        expectEqual(MetricFormat.diskFreeCompact(12_500_000_000), "12G", "disk free compact uses whole gigabytes")
+        expectEqual(MetricFormat.diskFreeCompact(1_200_000_000), "1.2G", "disk free compact keeps one decimal under 10G")
+        expectEqual(MetricFormat.diskFreeCompact(999_000_000), "999M", "disk free compact uses megabytes under 1G")
+        expectEqual(MetricFormat.diskFreeCompact(512_000), "0.5M", "disk free compact keeps fractional megabytes")
+        expectEqual(MetricFormat.diskFreeCompact(0), "0M", "disk free compact zero")
 
         expectEqual(MetricFormat.bytesPerSec(0), "0 B/s", "rate zero")
         expectEqual(MetricFormat.bytesPerSec(2 * 1024 * 1024), "2.0 MB/s", "rate 2M")
@@ -979,6 +984,12 @@ struct MetricsTests {
                "menu bar label style defaults to compact")
         expect(registeredDefaults[DefaultsKey.menuBarMemoryStyle] as? String == "percent",
                "memory menu bar style defaults to percent")
+        expect(registeredDefaults[DefaultsKey.menuBarDiskUsageStyle] as? String == "percent",
+               "disk usage menu bar style defaults to percent")
+        expect(Defaults.sanitizedMenuBarDiskUsageStyle("free") == "free",
+               "disk usage free style is accepted")
+        expect(Defaults.sanitizedMenuBarDiskUsageStyle("nope") == "percent",
+               "invalid disk usage style falls back to percent")
         expect(registeredDefaults[DefaultsKey.windowLayoutShortcutsEnabled] as? Bool == false,
                "window layout shortcuts stay off until enabled")
         let layoutShortcutKeys = [

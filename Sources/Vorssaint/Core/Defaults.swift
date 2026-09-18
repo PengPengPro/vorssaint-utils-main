@@ -125,6 +125,7 @@ enum DefaultsKey {
     static let menuBarNetworkUploadFirst = "menuBarNetworkUploadFirst" // network menu bar block shows upload above download
     static let menuBarLabelStyle = "menuBarLabelStyle"     // compact | classic
     static let menuBarMemoryStyle = "menuBarMemoryStyle"   // dot | percent | both
+    static let menuBarDiskUsageStyle = "menuBarDiskUsageStyle" // percent | free
     static let monitorInterval = "monitorIntervalSeconds"  // sampling cadence: 1/2/5
     static let temperatureUnit = "temperatureUnit"          // celsius | fahrenheit
     // System monitor — which blocks appear in the panel.
@@ -348,6 +349,7 @@ enum Defaults {
     ]
     static let allowedMenuBarLabelStyles = ["compact", "classic"]
     static let allowedMenuBarMemoryStyles = ["dot", "percent", "both"]
+    static let allowedMenuBarDiskUsageStyles = ["percent", "free"]
     static let allowedPreviewSizes = ["normal", "large", "xlarge"]
     static let allowedClipboardHistoryLimits = [20, 50, 100]
     static let allowedMonitorAlertCooldowns = [2, 5, 15, 30, 60]
@@ -450,6 +452,7 @@ enum Defaults {
         DefaultsKey.menuBarNetworkUploadFirst: false,
         DefaultsKey.menuBarLabelStyle: "compact",
         DefaultsKey.menuBarMemoryStyle: "percent",
+        DefaultsKey.menuBarDiskUsageStyle: "percent",
         DefaultsKey.monitorShowSystem: true,
         DefaultsKey.monitorShowNetwork: true,
         DefaultsKey.monitorShowDisk: true,
@@ -683,6 +686,10 @@ enum Defaults {
 
     static func sanitizedMenuBarMemoryStyle(_ style: String) -> String {
         allowedMenuBarMemoryStyles.contains(style) ? style : "percent"
+    }
+
+    static func sanitizedMenuBarDiskUsageStyle(_ style: String) -> String {
+        allowedMenuBarDiskUsageStyles.contains(style) ? style : "percent"
     }
 
     static func sanitizedClipboardHistoryLimit(_ value: Int) -> Int {

@@ -677,6 +677,7 @@ extension Strings {
         menuBarLabelStyleClassic: "经典",
         monitorMemoryStyleLabel: "内存显示方式",
         monitorMemoryPressureDot: "压力圆点",
+        monitorDiskUsageShowFree: "显示剩余空间",
         memoryStyleDot: "圆点",
         memoryStylePercent: "%",
         memoryStyleBoth: "两者",

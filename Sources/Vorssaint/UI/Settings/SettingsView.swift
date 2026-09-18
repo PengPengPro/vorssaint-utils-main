@@ -53,7 +53,7 @@ struct SettingsView: View {
                                        l10n.s.defaultDurationLabel, l10n.s.extraBrightnessName]),
                 SettingsSidebarItem(page: .monitor, title: l10n.s.tabMonitor, icon: "chart.line.uptrend.xyaxis",
                             keywords: [l10n.s.menuBarSpacingLabel, l10n.s.menuBarHideIconToggle,
-                                       l10n.s.monitorMemoryPressureDot]),
+                                       l10n.s.monitorMemoryPressureDot, l10n.s.monitorDiskUsageShowFree]),
             ]),
             (categories.windowsControls, [
                 SettingsSidebarItem(page: .mouse, title: l10n.s.tabMouse, icon: "computermouse",

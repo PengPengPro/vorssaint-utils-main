@@ -677,6 +677,7 @@ extension Strings {
         menuBarLabelStyleClassic: "標準",
         monitorMemoryStyleLabel: "メモリの表示",
         monitorMemoryPressureDot: "メモリ圧力ドット",
+        monitorDiskUsageShowFree: "空き容量を表示",
         memoryStyleDot: "ドット",
         memoryStylePercent: "%",
         memoryStyleBoth: "両方",

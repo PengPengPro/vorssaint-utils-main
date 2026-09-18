@@ -112,6 +112,18 @@ enum MemoryMenuBarStyle: String, CaseIterable {
     var showsPercent: Bool { self == .percent || self == .both }
 }
 
+/// How Disk usage appears in the menu bar: used percentage, or remaining free
+/// space in compact G/M form.
+enum DiskUsageMenuBarStyle: String, CaseIterable {
+    case percent, free
+
+    static var current: DiskUsageMenuBarStyle {
+        let raw = UserDefaults.standard.string(forKey: DefaultsKey.menuBarDiskUsageStyle) ?? ""
+        let style = Defaults.sanitizedMenuBarDiskUsageStyle(raw)
+        return DiskUsageMenuBarStyle(rawValue: style) ?? .percent
+    }
+}
+
 enum MenuBarLabelStyle: String, CaseIterable {
     case compact, classic
 
@@ -328,7 +340,7 @@ enum MenuBarRenderer {
                 }
             case .diskUsage:
                 if let disk = primaryDisk(from: snapshot.disk) {
-                    let text = "DSK " + percent(disk.usedFraction)
+                    let text = "DSK " + diskUsageValue(for: disk)
                     items.append(MetricItem(metric: metric,
                                             segments: [.symbol(metric.symbolName), .text(" " + text)],
                                             width: reservedWidth(for: metric, preset: preset)))
@@ -547,11 +559,20 @@ enum MenuBarRenderer {
                 }
             case .diskUsage:
                 if let disk = primaryDisk(from: snapshot.disk) {
+<<<<<<< HEAD
                     append(.diskUsage, [.metricBlock(label: "DSK",
                                                      value: percent(disk.usedFraction),
                                                      minimumValue: "100%",
                                                      style: style,
                                                      pressure: nil)])
+=======
+                    let styleMode = DiskUsageMenuBarStyle.current
+                    groups.append([.metricBlock(label: "DSK",
+                                                value: diskUsageValue(for: disk),
+                                                minimumValue: styleMode == .free ? "999G" : "100%",
+                                                style: style,
+                                                pressure: nil)])
+>>>>>>> 185b838 (Add menu bar Disk usage toggle for free space.)
                 }
             case .diskActivity:
                 if let activity = diskActivity(from: snapshot.disk) {
@@ -698,7 +719,7 @@ enum MenuBarRenderer {
         case (_, .network):
             return 15      // down symbol + 1.0G + up symbol + 1.0G
         case (_, .diskUsage):
-            return 11      // symbol + " DSK 100%"
+            return DiskUsageMenuBarStyle.current == .free ? 12 : 11  // "DSK 999G" / "DSK 100%"
         case (_, .diskActivity):
             return 15      // R1.0G + W1.0G
         case (_, .battery), (_, .power):
@@ -1147,6 +1168,15 @@ enum MenuBarRenderer {
     private static func primaryDisk(from reading: DiskReading?) -> DiskDeviceReading? {
         guard let devices = reading?.devices, !devices.isEmpty else { return nil }
         return devices.first(where: { $0.isInternal }) ?? devices.first
+    }
+
+    private static func diskUsageValue(for disk: DiskDeviceReading) -> String {
+        switch DiskUsageMenuBarStyle.current {
+        case .free:
+            return MetricFormat.diskFreeCompact(disk.freeBytes)
+        case .percent:
+            return percent(disk.usedFraction)
+        }
     }
 
     private static func diskActivity(from reading: DiskReading?) -> (read: Double, write: Double)? {

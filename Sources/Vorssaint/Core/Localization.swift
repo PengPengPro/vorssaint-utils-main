@@ -808,6 +808,7 @@ struct Strings {
     let menuBarLabelStyleClassic: String
     let monitorMemoryStyleLabel: String
     let monitorMemoryPressureDot: String
+    let monitorDiskUsageShowFree: String
     let memoryStyleDot: String
     let memoryStylePercent: String
     let memoryStyleBoth: String
@@ -1591,6 +1592,7 @@ extension Strings {
         menuBarLabelStyleClassic: "Clássicos",
         monitorMemoryStyleLabel: "Mostrar memória como",
         monitorMemoryPressureDot: "Ponto de pressão",
+        monitorDiskUsageShowFree: "Mostrar espaço livre",
         memoryStyleDot: "Ponto",
         memoryStylePercent: "%",
         memoryStyleBoth: "Ambos",
@@ -2369,6 +2371,7 @@ extension Strings {
         menuBarLabelStyleClassic: "Classic",
         monitorMemoryStyleLabel: "Show memory as",
         monitorMemoryPressureDot: "Pressure dot",
+        monitorDiskUsageShowFree: "Show free space",
         memoryStyleDot: "Dot",
         memoryStylePercent: "%",
         memoryStyleBoth: "Both",

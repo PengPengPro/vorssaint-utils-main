@@ -677,6 +677,7 @@ extension Strings {
         menuBarLabelStyleClassic: "Klasik",
         monitorMemoryStyleLabel: "Belleği şöyle göster",
         monitorMemoryPressureDot: "Basınç noktası",
+        monitorDiskUsageShowFree: "Boş alanı göster",
         memoryStyleDot: "Nokta",
         memoryStylePercent: "%",
         memoryStyleBoth: "İkisi de",

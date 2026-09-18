@@ -89,6 +89,20 @@ enum MetricFormat {
             : String(format: "%.0f %@", value, units[index])
     }
 
+    /// Compact free-space readout for the menu bar: gigabytes at ≥1 GB, otherwise
+    /// megabytes (decimal units, matching Finder / `diskBytes`).
+    static func diskFreeCompact(_ bytes: UInt64) -> String {
+        let gb = Double(bytes) / 1_000_000_000
+        if gb >= 1 {
+            return gb < 10 ? String(format: "%.1fG", gb) : String(format: "%.0fG", gb)
+        }
+        let mb = Double(bytes) / 1_000_000
+        if mb < 10, mb > 0 {
+            return String(format: "%.1fM", mb)
+        }
+        return String(format: "%.0fM", mb.rounded())
+    }
+
     static func diskBytesPrecise(_ bytes: UInt64) -> String {
         let units = ["B", "KB", "MB", "GB", "TB", "PB"]
         var value = max(0, Double(bytes))
