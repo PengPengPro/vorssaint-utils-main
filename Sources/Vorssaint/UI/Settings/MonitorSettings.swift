@@ -225,6 +225,8 @@ private struct MenuBarMetricOrderEditor: View {
                 NetworkMenuBarOrderOption()
             }
 
+            MetricRowColorOption(metric: metric)
+
             if metric != order.last {
                 Divider()
             }
@@ -318,6 +320,91 @@ private struct NetworkMenuBarOrderOption: View {
     var body: some View {
         if menuBarNetwork {
             MetricRowOptionToggle(label: l10n.s.monitorNetworkUploadFirst, isOn: $uploadFirst)
+        }
+    }
+}
+
+private struct MetricRowColorOption: View {
+    @ObservedObject private var l10n = L10n.shared
+    let metric: MenuBarMetric
+    @AppStorage private var shown: Bool
+    @AppStorage private var tintRaw: String
+
+    init(metric: MenuBarMetric) {
+        self.metric = metric
+        _shown = AppStorage(wrappedValue: false, metric.defaultsKey)
+        _tintRaw = AppStorage(wrappedValue: MenuBarMetricTint.none.rawValue, metric.colorDefaultsKey)
+    }
+
+    var body: some View {
+        if shown {
+            HStack(spacing: 8) {
+                if let color = swiftUIColor(for: currentTint) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 8, height: 8)
+                } else {
+                    Circle()
+                        .strokeBorder(Color.secondary.opacity(0.75), lineWidth: 1)
+                        .frame(width: 8, height: 8)
+                }
+                Text(l10n.s.monitorMenuBarMetricColor)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Menu {
+                    ForEach(MenuBarMetricTint.allCases) { tint in
+                        Button {
+                            tintRaw = tint.rawValue
+                        } label: {
+                            if tint == currentTint {
+                                Label(tint.title(l10n.s), systemImage: "checkmark")
+                            } else {
+                                Text(tint.title(l10n.s))
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(currentTint.title(l10n.s))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.primary.opacity(0.06)))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
+            .padding(.leading, 58)
+            .padding(.trailing, 4)
+            .padding(.bottom, 7)
+            .onAppear {
+                tintRaw = Defaults.sanitizedMenuBarMetricTint(tintRaw).rawValue
+            }
+        }
+    }
+
+    private var currentTint: MenuBarMetricTint {
+        Defaults.sanitizedMenuBarMetricTint(tintRaw)
+    }
+
+    private func swiftUIColor(for tint: MenuBarMetricTint) -> Color? {
+        switch tint {
+        case .none: return nil
+        case .orange: return .orange
+        case .green: return .green
+        case .blue: return .blue
+        case .purple: return .purple
+        case .pink: return .pink
+        case .red: return .red
+        case .yellow: return .yellow
+        case .teal: return .teal
         }
     }
 }

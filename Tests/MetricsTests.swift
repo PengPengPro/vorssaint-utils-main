@@ -990,6 +990,27 @@ struct MetricsTests {
                "disk usage free style is accepted")
         expect(Defaults.sanitizedMenuBarDiskUsageStyle("nope") == "percent",
                "invalid disk usage style falls back to percent")
+        for key in [
+            DefaultsKey.menuBarCPUColor, DefaultsKey.menuBarGPUColor, DefaultsKey.menuBarMemoryColor,
+            DefaultsKey.menuBarCPUTemperatureColor, DefaultsKey.menuBarGPUTemperatureColor,
+            DefaultsKey.menuBarBatteryTemperatureColor, DefaultsKey.menuBarNetworkColor,
+            DefaultsKey.menuBarDiskUsageColor, DefaultsKey.menuBarDiskActivityColor,
+            DefaultsKey.menuBarBatteryColor, DefaultsKey.menuBarPeripheralBatteryColor,
+            DefaultsKey.menuBarPowerColor,
+        ] {
+            expect(registeredDefaults[key] as? String == MenuBarMetricTint.none.rawValue,
+                   "\(key) defaults to none")
+        }
+        expect(Defaults.sanitizedMenuBarMetricTint("blue") == .blue,
+               "menu bar metric tint blue is accepted")
+        expect(Defaults.sanitizedMenuBarMetricTint("red") == .red,
+               "menu bar metric tint red is accepted")
+        expect(Defaults.sanitizedMenuBarMetricTint("yellow") == .yellow,
+               "menu bar metric tint yellow is accepted")
+        expect(Defaults.sanitizedMenuBarMetricTint("teal") == .teal,
+               "menu bar metric tint teal is accepted")
+        expect(Defaults.sanitizedMenuBarMetricTint("nope") == .none,
+               "invalid menu bar metric tint falls back to none")
         expect(registeredDefaults[DefaultsKey.windowLayoutShortcutsEnabled] as? Bool == false,
                "window layout shortcuts stay off until enabled")
         let layoutShortcutKeys = [

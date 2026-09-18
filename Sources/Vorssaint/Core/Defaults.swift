@@ -126,6 +126,19 @@ enum DefaultsKey {
     static let menuBarLabelStyle = "menuBarLabelStyle"     // compact | classic
     static let menuBarMemoryStyle = "menuBarMemoryStyle"   // dot | percent | both
     static let menuBarDiskUsageStyle = "menuBarDiskUsageStyle" // percent | free
+    // Per-metric menu bar tint (MenuBarMetricTint.rawValue). Default "none" = system label color.
+    static let menuBarCPUColor = "menuBarCPUColor"
+    static let menuBarGPUColor = "menuBarGPUColor"
+    static let menuBarMemoryColor = "menuBarMemoryColor"
+    static let menuBarCPUTemperatureColor = "menuBarCPUTemperatureColor"
+    static let menuBarGPUTemperatureColor = "menuBarGPUTemperatureColor"
+    static let menuBarBatteryTemperatureColor = "menuBarBatteryTemperatureColor"
+    static let menuBarNetworkColor = "menuBarNetworkColor"
+    static let menuBarDiskUsageColor = "menuBarDiskUsageColor"
+    static let menuBarDiskActivityColor = "menuBarDiskActivityColor"
+    static let menuBarBatteryColor = "menuBarBatteryColor"
+    static let menuBarPeripheralBatteryColor = "menuBarPeripheralBatteryColor"
+    static let menuBarPowerColor = "menuBarPowerColor"
     static let monitorInterval = "monitorIntervalSeconds"  // sampling cadence: 1/2/5
     static let temperatureUnit = "temperatureUnit"          // celsius | fahrenheit
     // System monitor — which blocks appear in the panel.
@@ -311,6 +324,27 @@ enum KeepAwakeIconTint: String, CaseIterable, Identifiable {
     }
 }
 
+/// Menu bar metric tint. `none` keeps the adaptive system label color.
+enum MenuBarMetricTint: String, CaseIterable, Identifiable {
+    case none, orange, green, blue, purple, pink, red, yellow, teal
+
+    var id: String { rawValue }
+
+    func title(_ strings: Strings) -> String {
+        switch self {
+        case .none: return strings.keepAwakeIconTintNone
+        case .orange: return strings.keepAwakeIconTintOrange
+        case .green: return strings.keepAwakeIconTintGreen
+        case .blue: return strings.keepAwakeIconTintBlue
+        case .purple: return strings.keepAwakeIconTintPurple
+        case .pink: return strings.keepAwakeIconTintPink
+        case .red: return strings.menuBarMetricTintRed
+        case .yellow: return strings.menuBarMetricTintYellow
+        case .teal: return strings.menuBarMetricTintTeal
+        }
+    }
+}
+
 /// Thumbnail size for the app switcher and Dock preview, scaled from one user
 /// preference so both grow together. Captures scale by the same factor, so
 /// larger previews stay sharp.
@@ -350,6 +384,9 @@ enum Defaults {
     static let allowedMenuBarLabelStyles = ["compact", "classic"]
     static let allowedMenuBarMemoryStyles = ["dot", "percent", "both"]
     static let allowedMenuBarDiskUsageStyles = ["percent", "free"]
+    static let allowedMenuBarMetricTints = [
+        "none", "orange", "green", "blue", "purple", "pink", "red", "yellow", "teal",
+    ]
     static let allowedPreviewSizes = ["normal", "large", "xlarge"]
     static let allowedClipboardHistoryLimits = [20, 50, 100]
     static let allowedMonitorAlertCooldowns = [2, 5, 15, 30, 60]
@@ -453,6 +490,18 @@ enum Defaults {
         DefaultsKey.menuBarLabelStyle: "compact",
         DefaultsKey.menuBarMemoryStyle: "percent",
         DefaultsKey.menuBarDiskUsageStyle: "percent",
+        DefaultsKey.menuBarCPUColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarGPUColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarMemoryColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarCPUTemperatureColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarGPUTemperatureColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarBatteryTemperatureColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarNetworkColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarDiskUsageColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarDiskActivityColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarBatteryColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarPeripheralBatteryColor: MenuBarMetricTint.none.rawValue,
+        DefaultsKey.menuBarPowerColor: MenuBarMetricTint.none.rawValue,
         DefaultsKey.monitorShowSystem: true,
         DefaultsKey.monitorShowNetwork: true,
         DefaultsKey.monitorShowDisk: true,
@@ -690,6 +739,15 @@ enum Defaults {
 
     static func sanitizedMenuBarDiskUsageStyle(_ style: String) -> String {
         allowedMenuBarDiskUsageStyles.contains(style) ? style : "percent"
+    }
+
+    static func sanitizedMenuBarMetricTint(_ rawValue: String?) -> MenuBarMetricTint {
+        guard let rawValue,
+              let tint = MenuBarMetricTint(rawValue: rawValue),
+              allowedMenuBarMetricTints.contains(tint.rawValue) else {
+            return .none
+        }
+        return tint
     }
 
     static func sanitizedClipboardHistoryLimit(_ value: Int) -> Int {

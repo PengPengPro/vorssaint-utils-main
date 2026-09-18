@@ -26,6 +26,18 @@ struct MenuBarMetricsPreview: View {
     @AppStorage(DefaultsKey.menuBarNetworkUploadFirst) private var networkUploadFirst = false
     @AppStorage(DefaultsKey.menuBarMemoryStyle) private var memoryStyle = "percent"
     @AppStorage(DefaultsKey.menuBarDiskUsageStyle) private var diskUsageStyle = "percent"
+    @AppStorage(DefaultsKey.menuBarCPUColor) private var cpuColor = "none"
+    @AppStorage(DefaultsKey.menuBarGPUColor) private var gpuColor = "none"
+    @AppStorage(DefaultsKey.menuBarMemoryColor) private var memoryColor = "none"
+    @AppStorage(DefaultsKey.menuBarCPUTemperatureColor) private var cpuTemperatureColor = "none"
+    @AppStorage(DefaultsKey.menuBarGPUTemperatureColor) private var gpuTemperatureColor = "none"
+    @AppStorage(DefaultsKey.menuBarBatteryTemperatureColor) private var batteryTemperatureColor = "none"
+    @AppStorage(DefaultsKey.menuBarNetworkColor) private var networkColor = "none"
+    @AppStorage(DefaultsKey.menuBarDiskUsageColor) private var diskUsageColor = "none"
+    @AppStorage(DefaultsKey.menuBarDiskActivityColor) private var diskActivityColor = "none"
+    @AppStorage(DefaultsKey.menuBarBatteryColor) private var batteryColor = "none"
+    @AppStorage(DefaultsKey.menuBarPeripheralBatteryColor) private var peripheralBatteryColor = "none"
+    @AppStorage(DefaultsKey.menuBarPowerColor) private var powerColor = "none"
     @AppStorage(DefaultsKey.temperatureUnit) private var temperatureUnit = TemperatureUnit.celsius.rawValue
 
     var body: some View {
@@ -35,6 +47,18 @@ struct MenuBarMetricsPreview: View {
         let _ = networkUploadFirst
         let _ = memoryStyle
         let _ = diskUsageStyle
+        let _ = cpuColor
+        let _ = gpuColor
+        let _ = memoryColor
+        let _ = cpuTemperatureColor
+        let _ = gpuTemperatureColor
+        let _ = batteryTemperatureColor
+        let _ = networkColor
+        let _ = diskUsageColor
+        let _ = diskActivityColor
+        let _ = batteryColor
+        let _ = peripheralBatteryColor
+        let _ = powerColor
         let _ = temperatureUnit
         let lines = MenuBarRenderer.lines(for: monitor.snapshot, metrics: activeMetrics)
         let stacked = lines.count > 1
@@ -115,13 +139,14 @@ struct MenuBarMetricsPreview: View {
                 .font(.system(size: 13.6, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 14.2, height: 14.2)
-        case let .metricBlock(label, value, minimumValue, style, pressure):
+        case let .metricBlock(label, value, minimumValue, style, pressure, tint):
             metricBlock(label: label,
                         value: value,
                         minimumValue: minimumValue,
                         style: style,
-                        pressure: pressure)
-        case let .networkBlock(down, up, style):
+                        pressure: pressure,
+                        tint: tint)
+        case let .networkBlock(down, up, style, tint):
             let rows = networkUploadFirst ? [("↑", up), ("↓", down)] : [("↓", down), ("↑", up)]
             VStack(alignment: .trailing, spacing: -0.6) {
                 Text(rows[0].0 + rows[0].1)
@@ -132,11 +157,11 @@ struct MenuBarMetricsPreview: View {
             .font(.system(size: MenuBarRenderer.networkBlockFontSize(style: style),
                           weight: .semibold,
                           design: .monospaced))
-            .foregroundStyle(.white)
+            .foregroundStyle(previewColor(for: tint))
             .frame(width: MenuBarRenderer.rateBlockWidth(style: style),
                    height: style == .readable ? 22 : 20,
                    alignment: .center)
-        case let .diskActivityBlock(read, write, style):
+        case let .diskActivityBlock(read, write, style, tint):
             VStack(alignment: .trailing, spacing: -0.6) {
                 Text("R\(read)")
                     .lineLimit(1)
@@ -146,11 +171,11 @@ struct MenuBarMetricsPreview: View {
             .font(.system(size: MenuBarRenderer.networkBlockFontSize(style: style),
                           weight: .semibold,
                           design: .monospaced))
-            .foregroundStyle(.white)
+            .foregroundStyle(previewColor(for: tint))
             .frame(width: MenuBarRenderer.rateBlockWidth(style: style),
                    height: style == .readable ? 22 : 20,
                    alignment: .center)
-        case let .batteryBlock(percent, isCharging, style):
+        case let .batteryBlock(percent, isCharging, style, tint):
             HStack(spacing: style == .readable ? 5 : 4) {
                 Image(systemName: MenuBarRenderer.batterySymbol(for: percent, isCharging: isCharging))
                     .font(.system(size: style == .readable ? 17 : 15.5, weight: .regular))
@@ -160,9 +185,9 @@ struct MenuBarMetricsPreview: View {
                                   design: .monospaced))
                     .frame(minWidth: style == .readable ? 33 : 30, alignment: .leading)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(previewColor(for: tint))
             .fixedSize(horizontal: true, vertical: true)
-        case let .peripheralBatteryBlock(devices):
+        case let .peripheralBatteryBlock(devices, tint):
             VStack(alignment: .leading, spacing: -0.6) {
                 ForEach(Array(devices.prefix(2))) { device in
                     HStack(spacing: 2) {
@@ -174,7 +199,7 @@ struct MenuBarMetricsPreview: View {
                     }
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(previewColor(for: tint))
             .fixedSize(horizontal: true, vertical: true)
         case let .dot(pressure):
             Circle()
@@ -194,7 +219,8 @@ struct MenuBarMetricsPreview: View {
                              value: String,
                              minimumValue: String,
                              style: MenuBarBlockStyle,
-                             pressure: MemoryPressure?) -> some View {
+                             pressure: MemoryPressure?,
+                             tint: MenuBarMetricTint) -> some View {
         VStack(spacing: -1) {
             Text(label)
                 .font(.system(size: style == .readable ? 7.2 : 6.6, weight: .medium))
@@ -215,8 +241,22 @@ struct MenuBarMetricsPreview: View {
                 }
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(previewColor(for: tint))
         .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private func previewColor(for tint: MenuBarMetricTint) -> Color {
+        switch tint {
+        case .none: return .white
+        case .orange: return .orange
+        case .green: return .green
+        case .blue: return .blue
+        case .purple: return .purple
+        case .pink: return .pink
+        case .red: return .red
+        case .yellow: return .yellow
+        case .teal: return .teal
+        }
     }
 
     private func metricValueMinWidth(minimumValue: String, style: MenuBarBlockStyle) -> CGFloat {

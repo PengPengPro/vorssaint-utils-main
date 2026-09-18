@@ -809,6 +809,10 @@ struct Strings {
     let monitorMemoryStyleLabel: String
     let monitorMemoryPressureDot: String
     let monitorDiskUsageShowFree: String
+    let monitorMenuBarMetricColor: String
+    let menuBarMetricTintRed: String
+    let menuBarMetricTintYellow: String
+    let menuBarMetricTintTeal: String
     let memoryStyleDot: String
     let memoryStylePercent: String
     let memoryStyleBoth: String
@@ -1593,6 +1597,10 @@ extension Strings {
         monitorMemoryStyleLabel: "Mostrar memória como",
         monitorMemoryPressureDot: "Ponto de pressão",
         monitorDiskUsageShowFree: "Mostrar espaço livre",
+        monitorMenuBarMetricColor: "Cor",
+        menuBarMetricTintRed: "Vermelho",
+        menuBarMetricTintYellow: "Amarelo",
+        menuBarMetricTintTeal: "Verde-azulado",
         memoryStyleDot: "Ponto",
         memoryStylePercent: "%",
         memoryStyleBoth: "Ambos",
@@ -2372,6 +2380,10 @@ extension Strings {
         monitorMemoryStyleLabel: "Show memory as",
         monitorMemoryPressureDot: "Pressure dot",
         monitorDiskUsageShowFree: "Show free space",
+        monitorMenuBarMetricColor: "Color",
+        menuBarMetricTintRed: "Red",
+        menuBarMetricTintYellow: "Yellow",
+        menuBarMetricTintTeal: "Teal",
         memoryStyleDot: "Dot",
         memoryStylePercent: "%",
         memoryStyleBoth: "Both",

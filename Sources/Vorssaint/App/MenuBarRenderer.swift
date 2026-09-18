@@ -26,6 +26,29 @@ enum MenuBarMetric: String, CaseIterable, Identifiable {
         }
     }
 
+    var colorDefaultsKey: String {
+        switch self {
+        case .cpu: return DefaultsKey.menuBarCPUColor
+        case .gpu: return DefaultsKey.menuBarGPUColor
+        case .memory: return DefaultsKey.menuBarMemoryColor
+        case .cpuTemperature: return DefaultsKey.menuBarCPUTemperatureColor
+        case .gpuTemperature: return DefaultsKey.menuBarGPUTemperatureColor
+        case .batteryTemperature: return DefaultsKey.menuBarBatteryTemperatureColor
+        case .network: return DefaultsKey.menuBarNetworkColor
+        case .diskUsage: return DefaultsKey.menuBarDiskUsageColor
+        case .diskActivity: return DefaultsKey.menuBarDiskActivityColor
+        case .battery: return DefaultsKey.menuBarBatteryColor
+        case .peripheralBattery: return DefaultsKey.menuBarPeripheralBatteryColor
+        case .power: return DefaultsKey.menuBarPowerColor
+        }
+    }
+
+    var tint: MenuBarMetricTint {
+        Defaults.sanitizedMenuBarMetricTint(
+            UserDefaults.standard.string(forKey: colorDefaultsKey)
+        )
+    }
+
     var symbolName: String {
         switch self {
         case .cpu: return "cpu"
@@ -140,11 +163,11 @@ enum MenuBarSegment {
     case text(String)
     case symbol(String)
     case largeSymbol(String)
-    case metricBlock(label: String, value: String, minimumValue: String, style: MenuBarBlockStyle, pressure: MemoryPressure?)
-    case networkBlock(down: String, up: String, style: MenuBarBlockStyle)
-    case diskActivityBlock(read: String, write: String, style: MenuBarBlockStyle)
-    case batteryBlock(percent: Int, isCharging: Bool, style: MenuBarBlockStyle)
-    case peripheralBatteryBlock(devices: [PeripheralBatteryDevice])
+    case metricBlock(label: String, value: String, minimumValue: String, style: MenuBarBlockStyle, pressure: MemoryPressure?, tint: MenuBarMetricTint)
+    case networkBlock(down: String, up: String, style: MenuBarBlockStyle, tint: MenuBarMetricTint)
+    case diskActivityBlock(read: String, write: String, style: MenuBarBlockStyle, tint: MenuBarMetricTint)
+    case batteryBlock(percent: Int, isCharging: Bool, style: MenuBarBlockStyle, tint: MenuBarMetricTint)
+    case peripheralBatteryBlock(devices: [PeripheralBatteryDevice], tint: MenuBarMetricTint)
     case dot(MemoryPressure)
     case separator
 }
@@ -417,22 +440,24 @@ enum MenuBarRenderer {
                 width += 11.4
             case .largeSymbol:
                 width += 14.2
-            case let .metricBlock(label, value, minimumValue, style, pressure):
+            case let .metricBlock(label, value, minimumValue, style, pressure, tint):
                 width += attachmentWidth(metricBlockAttachment(label: label,
                                                                value: value,
                                                                minimumValue: minimumValue,
                                                                style: style,
-                                                               pressure: pressure))
-            case let .networkBlock(down, up, style):
-                width += attachmentWidth(networkBlockAttachment(down: down, up: up, style: style))
-            case let .diskActivityBlock(read, write, style):
-                width += attachmentWidth(diskActivityBlockAttachment(read: read, write: write, style: style))
-            case let .batteryBlock(percent, isCharging, style):
+                                                               pressure: pressure,
+                                                               tint: tint))
+            case let .networkBlock(down, up, style, tint):
+                width += attachmentWidth(networkBlockAttachment(down: down, up: up, style: style, tint: tint))
+            case let .diskActivityBlock(read, write, style, tint):
+                width += attachmentWidth(diskActivityBlockAttachment(read: read, write: write, style: style, tint: tint))
+            case let .batteryBlock(percent, isCharging, style, tint):
                 width += attachmentWidth(batteryBlockAttachment(percent: percent,
                                                                 isCharging: isCharging,
-                                                                style: style))
-            case let .peripheralBatteryBlock(devices):
-                width += attachmentWidth(peripheralBatteryStackedAttachment(devices: devices))
+                                                                style: style,
+                                                                tint: tint))
+            case let .peripheralBatteryBlock(devices, tint):
+                width += attachmentWidth(peripheralBatteryStackedAttachment(devices: devices, tint: tint))
             case .dot:
                 width += ("●" as NSString).size(withAttributes: [.font: font]).width
             case .separator:
@@ -485,7 +510,7 @@ enum MenuBarRenderer {
                                                    minimumValue: minimumCombinedValue(primary: usage != nil,
                                                                                       temperature: temperature != nil),
                                                    style: style,
-                                                   pressure: nil)])
+                                                   pressure: nil, tint: MenuBarMetric.cpu.tint)])
                     }
                     break
                 }
@@ -495,7 +520,7 @@ enum MenuBarRenderer {
                                                               value: temperatureCompact(temperature),
                                                               minimumValue: "999°",
                                                               style: style,
-                                                              pressure: nil)])
+                                                              pressure: nil, tint: MenuBarMetric.cpuTemperature.tint)])
                     }
                     break
                 }
@@ -504,7 +529,7 @@ enum MenuBarRenderer {
                                                value: percent(usage),
                                                minimumValue: "100%",
                                                style: style,
-                                               pressure: nil)])
+                                               pressure: nil, tint: MenuBarMetric.cpu.tint)])
                 }
             case .gpu, .gpuTemperature:
                 if combineTemperatures {
@@ -520,7 +545,7 @@ enum MenuBarRenderer {
                                                    minimumValue: minimumCombinedValue(primary: usage != nil,
                                                                                       temperature: temperature != nil),
                                                    style: style,
-                                                   pressure: nil)])
+                                                   pressure: nil, tint: MenuBarMetric.gpu.tint)])
                     }
                     break
                 }
@@ -530,7 +555,7 @@ enum MenuBarRenderer {
                                                               value: temperatureCompact(temperature),
                                                               minimumValue: "999°",
                                                               style: style,
-                                                              pressure: nil)])
+                                                              pressure: nil, tint: MenuBarMetric.gpuTemperature.tint)])
                     }
                     break
                 }
@@ -539,7 +564,7 @@ enum MenuBarRenderer {
                                                value: percent(usage),
                                                minimumValue: "100%",
                                                style: style,
-                                               pressure: nil)])
+                                               pressure: nil, tint: MenuBarMetric.gpu.tint)])
                 }
             case .memory:
                 let memoryStyle = MemoryMenuBarStyle.current
@@ -550,35 +575,27 @@ enum MenuBarRenderer {
                                               value: value,
                                               minimumValue: memoryStyle.showsPercent ? "100%" : "",
                                               style: style,
-                                              pressure: memoryStyle.showsDot ? snapshot.memoryPressure : nil)])
+                                              pressure: memoryStyle.showsDot ? snapshot.memoryPressure : nil, tint: MenuBarMetric.memory.tint)])
             case .network:
                 if let down = snapshot.netDownBytesPerSec, let up = snapshot.netUpBytesPerSec {
                     append(.network, [.networkBlock(down: MetricFormat.bytesPerSecCompact(down),
                                                     up: MetricFormat.bytesPerSecCompact(up),
-                                                    style: style)])
+                                                    style: style, tint: MenuBarMetric.network.tint)])
                 }
             case .diskUsage:
                 if let disk = primaryDisk(from: snapshot.disk) {
-<<<<<<< HEAD
-                    append(.diskUsage, [.metricBlock(label: "DSK",
-                                                     value: percent(disk.usedFraction),
-                                                     minimumValue: "100%",
-                                                     style: style,
-                                                     pressure: nil)])
-=======
                     let styleMode = DiskUsageMenuBarStyle.current
-                    groups.append([.metricBlock(label: "DSK",
-                                                value: diskUsageValue(for: disk),
-                                                minimumValue: styleMode == .free ? "999G" : "100%",
-                                                style: style,
-                                                pressure: nil)])
->>>>>>> 185b838 (Add menu bar Disk usage toggle for free space.)
+                    append(.diskUsage, [.metricBlock(label: "DSK",
+                                                     value: diskUsageValue(for: disk),
+                                                     minimumValue: styleMode == .free ? "999G" : "100%",
+                                                     style: style,
+                                                     pressure: nil, tint: MenuBarMetric.diskUsage.tint)])
                 }
             case .diskActivity:
                 if let activity = diskActivity(from: snapshot.disk) {
                     append(.diskActivity, [.diskActivityBlock(read: MetricFormat.bytesPerSecCompact(activity.read),
                                                               write: MetricFormat.bytesPerSecCompact(activity.write),
-                                                              style: style)])
+                                                              style: style, tint: MenuBarMetric.diskActivity.tint)])
                 }
             case .battery, .batteryTemperature:
                 if combineTemperatures {
@@ -596,17 +613,17 @@ enum MenuBarRenderer {
                                                        value: value,
                                                        minimumValue: "100% 999°",
                                                        style: style,
-                                                       pressure: nil)])
+                                                       pressure: nil, tint: MenuBarMetric.battery.tint)])
                     } else if let chargePercent = enabled.contains(.battery) ? snapshot.power?.chargePercent : nil {
                         append(.battery, [.batteryBlock(percent: chargePercent,
                                                         isCharging: snapshot.power?.isCharging ?? false,
-                                                        style: style)])
+                                                        style: style, tint: MenuBarMetric.battery.tint)])
                     } else if let temperature {
                         append(.batteryTemperature, [.metricBlock(label: temperatureLabel("BAT"),
                                                                   value: temperature,
                                                                   minimumValue: "999°",
                                                                   style: style,
-                                                                  pressure: nil)])
+                                                                  pressure: nil, tint: MenuBarMetric.batteryTemperature.tint)])
                     }
                     break
                 }
@@ -616,19 +633,19 @@ enum MenuBarRenderer {
                                                                   value: temperatureCompact(temperature),
                                                                   minimumValue: "999°",
                                                                   style: style,
-                                                                  pressure: nil)])
+                                                                  pressure: nil, tint: MenuBarMetric.batteryTemperature.tint)])
                     }
                     break
                 }
                 if let charge = snapshot.power?.chargePercent {
                     append(.battery, [.batteryBlock(percent: charge,
                                                     isCharging: snapshot.power?.isCharging ?? false,
-                                                    style: style)])
+                                                    style: style, tint: MenuBarMetric.battery.tint)])
                 }
             case .peripheralBattery:
                 let devices = PeripheralBatterySupport.menuBarDevices(from: snapshot.peripheralBatteries)
                 if !devices.isEmpty {
-                    append(.peripheralBattery, [.peripheralBatteryBlock(devices: devices)])
+                    append(.peripheralBattery, [.peripheralBatteryBlock(devices: devices, tint: MenuBarMetric.peripheralBattery.tint)])
                 }
             case .power:
                 if let watts = snapshot.power?.systemWatts {
@@ -636,7 +653,7 @@ enum MenuBarRenderer {
                                                  value: MetricFormat.wattsCompact(watts),
                                                  minimumValue: "99W",
                                                  style: style,
-                                                 pressure: nil)])
+                                                 pressure: nil, tint: MenuBarMetric.power.tint)])
                 }
             }
         }
@@ -653,22 +670,24 @@ enum MenuBarRenderer {
                 result.append(symbolAttachment(named: name, stacked: false))
             case let .largeSymbol(name):
                 result.append(symbolAttachment(named: name, stacked: false, enlarged: true))
-            case let .metricBlock(label, value, minimumValue, style, pressure):
+            case let .metricBlock(label, value, minimumValue, style, pressure, tint):
                 result.append(metricBlockAttachment(label: label,
                                                     value: value,
                                                     minimumValue: minimumValue,
                                                     style: style,
-                                                    pressure: pressure))
-            case let .networkBlock(down, up, style):
-                result.append(networkBlockAttachment(down: down, up: up, style: style))
-            case let .diskActivityBlock(read, write, style):
-                result.append(diskActivityBlockAttachment(read: read, write: write, style: style))
-            case let .batteryBlock(percent, isCharging, style):
+                                                    pressure: pressure,
+                                                    tint: tint))
+            case let .networkBlock(down, up, style, tint):
+                result.append(networkBlockAttachment(down: down, up: up, style: style, tint: tint))
+            case let .diskActivityBlock(read, write, style, tint):
+                result.append(diskActivityBlockAttachment(read: read, write: write, style: style, tint: tint))
+            case let .batteryBlock(percent, isCharging, style, tint):
                 result.append(batteryBlockAttachment(percent: percent,
                                                      isCharging: isCharging,
-                                                     style: style))
-            case let .peripheralBatteryBlock(devices):
-                result.append(peripheralBatteryStackedAttachment(devices: devices))
+                                                     style: style,
+                                                     tint: tint))
+            case let .peripheralBatteryBlock(devices, tint):
+                result.append(peripheralBatteryStackedAttachment(devices: devices, tint: tint))
             case let .dot(pressure):
                 result.append(NSAttributedString(string: "●", attributes: [.foregroundColor: nsColor(for: pressure)]))
             case .separator:
@@ -755,9 +774,9 @@ enum MenuBarRenderer {
         return segments
     }
 
-    /// The colored attributed string for the status item. Only alert/status dots
-    /// get fixed colors; text and image-backed metric blocks use dynamic system
-    /// colors so they follow the menu bar appearance over each wallpaper.
+    /// The colored attributed string for the status item. Alert/status dots keep
+    /// their pressure colors; metric blocks use each metric's chosen tint, or the
+    /// adaptive system label color when tint is `.none`.
     static func attributed(for snapshot: SystemSnapshot,
                            metrics: [MenuBarMetric],
                            allowStacked: Bool = true,
@@ -773,22 +792,24 @@ enum MenuBarRenderer {
                 result.append(symbolAttachment(named: name, stacked: stacked))
             case let .largeSymbol(name):
                 result.append(symbolAttachment(named: name, stacked: stacked, enlarged: true))
-            case let .metricBlock(label, value, minimumValue, style, pressure):
+            case let .metricBlock(label, value, minimumValue, style, pressure, tint):
                 result.append(metricBlockAttachment(label: label,
                                                     value: value,
                                                     minimumValue: minimumValue,
                                                     style: style,
-                                                    pressure: pressure))
-            case let .networkBlock(down, up, style):
-                result.append(networkBlockAttachment(down: down, up: up, style: style))
-            case let .diskActivityBlock(read, write, style):
-                result.append(diskActivityBlockAttachment(read: read, write: write, style: style))
-            case let .batteryBlock(percent, isCharging, style):
+                                                    pressure: pressure,
+                                                    tint: tint))
+            case let .networkBlock(down, up, style, tint):
+                result.append(networkBlockAttachment(down: down, up: up, style: style, tint: tint))
+            case let .diskActivityBlock(read, write, style, tint):
+                result.append(diskActivityBlockAttachment(read: read, write: write, style: style, tint: tint))
+            case let .batteryBlock(percent, isCharging, style, tint):
                 result.append(batteryBlockAttachment(percent: percent,
                                                      isCharging: isCharging,
-                                                     style: style))
-            case let .peripheralBatteryBlock(devices):
-                result.append(peripheralBatteryStackedAttachment(devices: devices))
+                                                     style: style,
+                                                     tint: tint))
+            case let .peripheralBatteryBlock(devices, tint):
+                result.append(peripheralBatteryStackedAttachment(devices: devices, tint: tint))
             case let .dot(pressure):
                 result.append(NSAttributedString(string: "●", attributes: [.foregroundColor: nsColor(for: pressure)]))
             case .separator:
@@ -821,12 +842,14 @@ enum MenuBarRenderer {
                                               value: String,
                                               minimumValue: String,
                                               style: MenuBarBlockStyle,
-                                              pressure: MemoryPressure?) -> NSAttributedString {
+                                              pressure: MemoryPressure?,
+                                              tint: MenuBarMetricTint) -> NSAttributedString {
         let image = metricBlockImage(label: label,
                                      value: value,
                                      minimumValue: minimumValue,
                                      style: style,
-                                     pressure: pressure)
+                                     pressure: pressure,
+                                     tint: tint)
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = NSRect(x: 0,
@@ -836,8 +859,8 @@ enum MenuBarRenderer {
         return NSAttributedString(attachment: attachment)
     }
 
-    private static func networkBlockAttachment(down: String, up: String, style: MenuBarBlockStyle) -> NSAttributedString {
-        let image = networkBlockImage(down: down, up: up, style: style)
+    private static func networkBlockAttachment(down: String, up: String, style: MenuBarBlockStyle, tint: MenuBarMetricTint) -> NSAttributedString {
+        let image = networkBlockImage(down: down, up: up, style: style, tint: tint)
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = NSRect(x: 0, y: style == .readable ? -6.1 : -5.5,
@@ -848,8 +871,9 @@ enum MenuBarRenderer {
 
     private static func diskActivityBlockAttachment(read: String,
                                                     write: String,
-                                                    style: MenuBarBlockStyle) -> NSAttributedString {
-        let image = diskActivityBlockImage(read: read, write: write, style: style)
+                                                    style: MenuBarBlockStyle,
+                                                    tint: MenuBarMetricTint) -> NSAttributedString {
+        let image = diskActivityBlockImage(read: read, write: write, style: style, tint: tint)
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = NSRect(x: 0, y: style == .readable ? -6.1 : -5.5,
@@ -860,10 +884,12 @@ enum MenuBarRenderer {
 
     private static func batteryBlockAttachment(percent: Int,
                                                isCharging: Bool,
-                                               style: MenuBarBlockStyle) -> NSAttributedString {
+                                               style: MenuBarBlockStyle,
+                                               tint: MenuBarMetricTint) -> NSAttributedString {
         let image = batteryBlockImage(percent: percent,
                                       isCharging: isCharging,
-                                      style: style)
+                                      style: style,
+                                      tint: tint)
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = NSRect(x: 0,
@@ -877,7 +903,8 @@ enum MenuBarRenderer {
                                          value: String,
                                          minimumValue reservedValue: String,
                                          style: MenuBarBlockStyle,
-                                         pressure: MemoryPressure?) -> NSImage {
+                                         pressure: MemoryPressure?,
+                                         tint: MenuBarMetricTint) -> NSImage {
         // Compact spacing hugs the value's digit count (with a stability
         // floor, see MenuBarSpacingSupport) instead of the metric's absolute
         // maximum; the reserve participates in the cache key, so both modes
@@ -886,7 +913,7 @@ enum MenuBarRenderer {
             ? MenuBarSpacingSupport.compactReserve(label: label, value: value)
             : reservedValue
         let pressureKey = pressure.map(String.init(describing:)) ?? "none"
-        let cacheKey = "metric|\(label)|\(value)|\(minimumValue)|\(style)|\(pressureKey)" as NSString
+        let cacheKey = "metric|\(label)|\(value)|\(minimumValue)|\(style)|\(pressureKey)|\(tint.rawValue)" as NSString
         if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
 
         let labelFont = NSFont.systemFont(ofSize: style == .readable ? 7.2 : 6.6, weight: .medium)
@@ -907,8 +934,8 @@ enum MenuBarRenderer {
         let image = NSImage(size: NSSize(width: width, height: height), flipped: false) { rect in
             NSColor.clear.setFill()
             rect.fill()
-            let labelAttrs = dynamicTextAttributes(font: labelFont)
-            let valueAttrs = dynamicTextAttributes(font: valueFont)
+            let labelAttrs = dynamicTextAttributes(font: labelFont, tint: tint)
+            let valueAttrs = dynamicTextAttributes(font: valueFont, tint: tint)
             (label as NSString).draw(at: NSPoint(x: (width - labelSize.width) / 2,
                                      y: style == .readable ? 12.9 : 12.0),
                                      withAttributes: labelAttrs)
@@ -931,34 +958,38 @@ enum MenuBarRenderer {
         return image
     }
 
-    private static func networkBlockImage(down: String, up: String, style: MenuBarBlockStyle) -> NSImage {
+    private static func networkBlockImage(down: String, up: String, style: MenuBarBlockStyle, tint: MenuBarMetricTint) -> NSImage {
         let uploadFirst = UserDefaults.standard.bool(forKey: DefaultsKey.menuBarNetworkUploadFirst)
-        let cacheKey = "network|\(down)|\(up)|\(style)|\(uploadFirst)" as NSString
+        let cacheKey = "network|\(down)|\(up)|\(style)|\(uploadFirst)|\(tint.rawValue)" as NSString
         if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
 
         let lines = uploadFirst ? ["↑\(up)", "↓\(down)"] : ["↓\(down)", "↑\(up)"]
         return stackedRatesImage(lines: lines,
                                  reservedLines: ["↓000B", "↑000B"],
                                  cacheKey: cacheKey,
-                                 style: style)
+                                 style: style,
+                                 tint: tint)
     }
 
     private static func diskActivityBlockImage(read: String,
                                                write: String,
-                                               style: MenuBarBlockStyle) -> NSImage {
-        let cacheKey = "diskActivity|\(read)|\(write)|\(style)" as NSString
+                                               style: MenuBarBlockStyle,
+                                               tint: MenuBarMetricTint) -> NSImage {
+        let cacheKey = "diskActivity|\(read)|\(write)|\(style)|\(tint.rawValue)" as NSString
         if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
 
         return stackedRatesImage(lines: ["R\(read)", "W\(write)"],
                                  reservedLines: ["R000B", "W000B"],
                                  cacheKey: cacheKey,
-                                 style: style)
+                                 style: style,
+                                 tint: tint)
     }
 
     private static func stackedRatesImage(lines: [String],
                                           reservedLines: [String],
                                           cacheKey: NSString,
-                                          style: MenuBarBlockStyle) -> NSImage {
+                                          style: MenuBarBlockStyle,
+                                          tint: MenuBarMetricTint) -> NSImage {
         let font = NSFont.monospacedSystemFont(ofSize: networkBlockFontSize(style: style),
                                                weight: .semibold)
         let lineHeight = networkBlockLineHeight(style: style)
@@ -967,7 +998,7 @@ enum MenuBarRenderer {
         let image = NSImage(size: imageSize, flipped: false) { rect in
             NSColor.clear.setFill()
             rect.fill()
-            let attrs = dynamicTextAttributes(font: font)
+            let attrs = dynamicTextAttributes(font: font, tint: tint)
             let textSize = ((reservedLines.first ?? lines.first ?? "") as NSString).size(withAttributes: attrs)
             let contentHeight = lineHeight + textSize.height
             let bottomY = (imageSize.height - contentHeight) / 2
@@ -994,9 +1025,10 @@ enum MenuBarRenderer {
 
     private static func batteryBlockImage(percent: Int,
                                           isCharging: Bool,
-                                          style: MenuBarBlockStyle) -> NSImage {
+                                          style: MenuBarBlockStyle,
+                                          tint: MenuBarMetricTint) -> NSImage {
         let clampedPercent = max(0, min(100, percent))
-        let cacheKey = "battery|\(clampedPercent)|\(isCharging)|\(style)" as NSString
+        let cacheKey = "battery|\(clampedPercent)|\(isCharging)|\(style)|\(tint.rawValue)" as NSString
         if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
 
         let symbolName = batterySymbol(for: percent, isCharging: isCharging)
@@ -1014,8 +1046,9 @@ enum MenuBarRenderer {
         let image = NSImage(size: imageSize, flipped: false) { rect in
             NSColor.clear.setFill()
             rect.fill()
+            let foreground = nsColor(for: tint)
             let symbolConfig = NSImage.SymbolConfiguration(pointSize: symbolPointSize, weight: .regular)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [.labelColor]))
+                .applying(NSImage.SymbolConfiguration(paletteColors: [foreground]))
             if let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
                 .withSymbolConfiguration(symbolConfig) {
                 let symbolSize = symbol.size
@@ -1025,7 +1058,7 @@ enum MenuBarRenderer {
                                         height: symbolSize.height)
                 symbol.draw(in: symbolRect)
             }
-            let valueAttrs = dynamicTextAttributes(font: valueFont)
+            let valueAttrs = dynamicTextAttributes(font: valueFont, tint: tint)
             let valueY = (height - valueSize.height) / 2
             (value as NSString).draw(at: NSPoint(x: symbolWidth + gap, y: valueY),
                                      withAttributes: valueAttrs)
@@ -1036,8 +1069,23 @@ enum MenuBarRenderer {
         return image
     }
 
-    private static func dynamicTextAttributes(font: NSFont) -> [NSAttributedString.Key: Any] {
-        [.font: font, .foregroundColor: NSColor.labelColor]
+    private static func dynamicTextAttributes(font: NSFont,
+                                              tint: MenuBarMetricTint = .none) -> [NSAttributedString.Key: Any] {
+        [.font: font, .foregroundColor: nsColor(for: tint)]
+    }
+
+    private static func nsColor(for tint: MenuBarMetricTint) -> NSColor {
+        switch tint {
+        case .none: return .labelColor
+        case .orange: return .systemOrange
+        case .green: return .systemGreen
+        case .blue: return .systemBlue
+        case .purple: return .systemPurple
+        case .pink: return .systemPink
+        case .red: return .systemRed
+        case .yellow: return .systemYellow
+        case .teal: return .systemTeal
+        }
     }
 
     static func batterySymbol(for percent: Int, isCharging: Bool) -> String {
@@ -1061,10 +1109,11 @@ enum MenuBarRenderer {
         }
     }
 
-    static func peripheralBatteryStackedAttachment(devices: [PeripheralBatteryDevice]) -> NSAttributedString {
+    static func peripheralBatteryStackedAttachment(devices: [PeripheralBatteryDevice],
+                                                    tint: MenuBarMetricTint) -> NSAttributedString {
         let rows = Array(devices.prefix(2))
         guard !rows.isEmpty else { return NSAttributedString(string: "") }
-        let image = peripheralBatteryStackedImage(devices: rows)
+        let image = peripheralBatteryStackedImage(devices: rows, tint: tint)
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = NSRect(x: 0,
@@ -1074,9 +1123,10 @@ enum MenuBarRenderer {
         return NSAttributedString(attachment: attachment)
     }
 
-    static func peripheralBatteryStackedImage(devices: [PeripheralBatteryDevice]) -> NSImage {
+    static func peripheralBatteryStackedImage(devices: [PeripheralBatteryDevice],
+                                              tint: MenuBarMetricTint) -> NSImage {
         let rows = Array(devices.prefix(2))
-        let cacheKey = "peripheral3|\(rows.map { "\($0.kind.rawValue):\($0.percent)" }.joined(separator: "|"))" as NSString
+        let cacheKey = "peripheral3|\(rows.map { "\($0.kind.rawValue):\($0.percent)" }.joined(separator: "|"))|\(tint.rawValue)" as NSString
         if let cached = blockImageCache.object(forKey: cacheKey) { return cached }
 
         let style = MenuBarBlockStyle.dense
@@ -1087,16 +1137,17 @@ enum MenuBarRenderer {
         let gap: CGFloat = 2.0
         let lineHeight = networkBlockLineHeight(style: style)
         let height: CGFloat = 20
-        let valueAttrs = dynamicTextAttributes(font: font)
+        let valueAttrs = dynamicTextAttributes(font: font, tint: tint)
         let reservedValue = "100%"
         let reservedValueWidth = (reservedValue as NSString).size(withAttributes: valueAttrs).width
         let rowWidth = symbolWidth + gap + reservedValueWidth
         let imageSize = NSSize(width: ceil(rowWidth), height: height)
+        let foreground = nsColor(for: tint)
         let image = NSImage(size: imageSize, flipped: false) { rect in
             NSColor.clear.setFill()
             rect.fill()
             let symbolConfig = NSImage.SymbolConfiguration(pointSize: symbolPointSize, weight: .semibold)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [.labelColor]))
+                .applying(NSImage.SymbolConfiguration(paletteColors: [foreground]))
             let textSize = (reservedValue as NSString).size(withAttributes: valueAttrs)
             let contentHeight = lineHeight * CGFloat(max(rows.count - 1, 0)) + textSize.height
             let bottomY = (imageSize.height - contentHeight) / 2
